@@ -88,19 +88,20 @@ speedpart(ID, T..T+N, N+1) :- speedpart(ID, T, N), action(train(ID), M, T), M !=
 % -------22--22-221111...12222-22-----  2
 % -------333-333221111...122333333----  3
 % -------4444333221111...1223334444---  4
-speed(ID, T, N) :- speedpart(ID, T, _), N = #max{N1: speedpart(ID, T, N1)}.
-speed(ID, T, 5) :- train(ID), time(T), not speedpart(ID, T, _).
+speed2(ID, T, N) :- speedpart(ID, T, _), N = #max{N1: speedpart(ID, T, N1)}.
+speed2(ID, T, 5) :- train(ID), time(T), not speedpart(ID, T, _).
 % speed: max speedpart or 5
 % 55555554444333221111...1223334444555  4
 
 % --- ACCELERATION SPECIFICS ---
 % smooth acceleration (speeddiff can't be less/greater than 1)
-:- speed(ID, T, N1), speed(ID, T+1, N2), N1=1..5, N1 + 1 < N2, time(T+1).
-:- speed(ID, T, N1), speed(ID, T+1, N2), N1=1..5, N1 - 1 > N2, time(T+1).
+:- speed2(ID, T, N1), speed2(ID, T+1, N2), N1=1..5, N1 + 1 < N2, time(T+1).
+:- speed2(ID, T, N1), speed2(ID, T+1, N2), N1=1..5, N1 - 1 > N2, time(T+1).
 % test: drop speed on curves (replace 1 with 1..n in speed for more deceleration)
-%:- speed(ID, T-1, 1), at(ID, T, _, _, D1), at(ID, T+1, _, _, D2), D1 != D2.
+%:- speed2(ID, T-1, 1), at(ID, T, _, _, D1), at(ID, T+1, _, _, D2), D1 != D2.
 % test: reduce max speed (slow train, icy rails, ...; change to 1..n to disable speed >= n)
-:- speed(_, _, 1..0).
+:- speed2(_, _, 1..0).
+:- speed2(ID,T,N),speed(ID,N2),N<N2.
 
 % --- EARLIEST ARRIVAL ---
 earliest_arrival(ID, T) :- reached(ID, T), not reached(ID, T1), T1 < T,time(T1).
@@ -113,6 +114,6 @@ earliest_arrival(ID, T) :- reached(ID, T), not reached(ID, T1), T1 < T,time(T1).
 #show action/3.
 %#show earliest_arrival/2.
 %
-%#show speed/3.
+%#show speed2/3.
 %#show speedpart/3.
 %#show at/5.
