@@ -63,43 +63,38 @@ curvaturedir(X, Y, Part, DX, DY) :- curve(Part, Dir0, Dir1), ext(Part, X, Y, Dir
 % curvature: get length
 curvature(X, Y, Part, C) :- curvaturedir(X, Y, Part, DX, DY), C = |DX| + |DY|. % using manhattan distance for simplicity
 
-% getting squared curvature possible with euclidean distance
-
-% curvature to radius: r = 1/κ
-% speed limit: F_ZP = F_R
-% mω²r = µmg (ω = v/r)
-% v²/r = µg
-% v²κ = µg
-% v² = κ⁻¹µg
-% v = √(κ⁻¹µg)
-% v is an integer, inverse calculation of square root might work; ⁴√ might be better
-% v⁴ = κ²µ²⟨Δ²g/Δs², Δ²g/Δs²⟩ (g: curve)
-% TODO: Δ²g/Δs² contains normalization
-
 % mu: friction coefficient (change to suit weather, will be affected by noise?)
-mu(1, 1).
+hash(X, Y, T, H) :- cell((X, Y), Tr), Tr != 0, time(T), H = |X + (Y * 16) + (T * 256) * 2654435761| / 128. % hash, leave 8 bits for addition
+mu(X, Y, T, MUn, MUd) :- hash(X, Y, T, _),
+    M = #sum {N : hash(X', Y', T, H), D = |X'-X|+|Y'-Y|, D < 5, N = H / (D+1)}, 
+    MUn = M / 200000, MUd = 1000. % max: 0x00ffffff * (1 + 4/2 + 8/3 + 12/4 + 16/5) ≈ 2·10⁸
+%mu(1, 1).
 % g: fit to tile size
-g(1, 1).
+g(1000, 1).
 
 % allowed speed
 allowed(X, Y, Part, V) :- ext(Part, X, Y, Dir0, DX0, DY0), ext(Part, X, Y, Dir1, DX1, DY1), curve(Part, Dir0, Dir1),
-    V=1..4, mu(MUn, MUd), g(Gn, Gd), % n: numerator, d: denominator
-%    (DX0+DY0) * (DX1+DY1) > 0 % difference between <= and >= (0: straight line, unlimited speed)
-%    (DX0+DY0) * (DX1+DY1) * (2 * MUd * Gd - 2 * V * V * MUn * Gn) <= 4 * V ** 4 * MUd * Gd * (DX0 * DX1 + DY0 * DY1) ** 2.
+    V=1..40, mu(X, Y, 1, MUn, MUd), g(Gn, Gd), % n: numerator, d: denominator
     (DX0**2+DY0**2) * (DX1**2+DY1**2) * (4*V**4*MUn*Gn - 2*MUd*Gd) ** 2 >= MUd**2 * Gd**2 * 4 * (DX0*DX1 + DY0*DY1) ** 2,
-    (V**4 * MUn * Gn - 2 * MUd * Gd) * V**3 > 0. % derivative; ensure V is on rising part
+    (V**4 * MUn * Gn - 2 * MUd * Gd) > 0, % derivative; ensure V is on rising part
+    DX0*DX1 + DY0+DY1 > 0. % fix square
+allowed(X, Y, Part, V) :- ext(Part, X, Y, Dir0, DX0, DY0), ext(Part, X, Y, Dir1, DX1, DY1), curve(Part, Dir0, Dir1),
+    V=1..40, mu(X, Y, 1, MUn, MUd), g(Gn, Gd), % n: numerator, d: denominator
+    (DX0**2+DY0**2) * (DX1**2+DY1**2) * (4*V**4*MUn*Gn - 2*MUd*Gd) ** 2 <= MUd**2 * Gd**2 * 4 * (DX0*DX1 + DY0*DY1) ** 2,
+    (V**4 * MUn * Gn - 2 * MUd * Gd) < 0, % derivative; ensure V is on rising part
+    DX0*DX1 + DY0+DY1 < 0.
 allowed(X, Y, Part, 4..5) :- cell((X, Y), Tr), curve(Part, _, _), Tr & Part = Part.
 allowed(X, Y, Part, N..5) :- allowed(X, Y, Part, N).
 
 highnum(N) :- ext(Part, X, Y, Dir0, DX0, DY0), ext(Part, X, Y, Dir1, DX1, DY1), curve(Part, Dir0, Dir1),
-    V=1..4, mu(MUn, MUd), g(Gn, Gd), % n: numerator, d: denominator
+    V=1..4, mu(X, Y, 1, MUn, MUd), g(Gn, Gd), % n: numerator, d: denominator
     N = (DX0**2+DY0**2) * (DX1**2+DY1**2) * (4*V**4*MUn*Gn - 2*MUd*Gd) ** 2.
 
 highnum2(N) :- ext(Part, X, Y, Dir0, DX0, DY0), ext(Part, X, Y, Dir1, DX1, DY1), curve(Part, Dir0, Dir1),
-    V=1..4, mu(MUn, MUd), g(Gn, Gd), % n: numerator, d: denominator
+    V=1..4, mu(X, Y, 1, MUn, MUd), g(Gn, Gd), % n: numerator, d: denominator
     N = MUd**2 * Gd**2 * 4 * (DX0*DX1 + DY0*DY1) ** 2.
 
-:- at(ID, T, X, Y, _), speed(ID, T, V), not allowed(X, Y, _, V), doesntexist(1).
+:- at(ID, T, X, Y, _), speed(ID, T, V), allowed(X, Y, _, _), not allowed(X, Y, _, V).
 
 % debug
 limit(X, Y, Part, V) :- allowed(X, Y, Part, _), V = #min{V' : allowed(X, Y, Part, V')}.

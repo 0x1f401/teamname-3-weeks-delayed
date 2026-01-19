@@ -95,8 +95,8 @@ speed(ID, T, 5) :- train(ID), time(T), not speedpart(ID, T, _).
 
 % --- ACCELERATION SPECIFICS ---
 % smooth acceleration (speeddiff can't be less/greater than 1)
-:- speed(ID, T, N1), speed(ID, T+1, N2), N1 + 1 < N2, time(T+1).
-:- speed(ID, T, N1), speed(ID, T+1, N2), N1 - 1 > N2, time(T+1).
+:- speed(ID, T, N1), speed(ID, T+1, N2), N1=1..5, N1 + 1 < N2, time(T+1).
+:- speed(ID, T, N1), speed(ID, T+1, N2), N1=1..5, N1 - 1 > N2, time(T+1).
 % test: drop speed on curves (replace 1 with 1..n in speed for more deceleration)
 %:- speed(ID, T-1, 1), at(ID, T, _, _, D1), at(ID, T+1, _, _, D2), D1 != D2.
 % test: reduce max speed (slow train, icy rails, ...; change to 1..n to disable speed >= n)
@@ -110,7 +110,7 @@ earliest_arrival(ID, T) :- reached(ID, T), not reached(ID, T1), T1 < T,time(T1).
 #minimize { T@1, ID : earliest_arrival(ID, T) }.
 #minimize { 1@2, ID, T : action(train(ID), M, T), mv(M), M != wait }.
 
-%#show action/3.
+#show action/3.
 %#show earliest_arrival/2.
 %
 %#show speed/3.
