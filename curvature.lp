@@ -64,10 +64,10 @@ curvaturedir(X, Y, Part, DX, DY) :- curve(Part, Dir0, Dir1), ext(Part, X, Y, Dir
 curvature(X, Y, Part, C) :- curvaturedir(X, Y, Part, DX, DY), C = |DX| + |DY|. % using manhattan distance for simplicity
 
 % mu: friction coefficient (change to suit weather, will be affected by noise?)
-hash(X, Y, T, H) :- cell((X, Y), Tr), Tr != 0, time(T), H = |X + (Y * 16) + (T * 256) * 2654435761| / 128. % hash, leave 8 bits for addition
-mu(X, Y, T, MUn, MUd) :- hash(X, Y, T, _),
-    M = #sum {N : hash(X', Y', T, H), D = |X'-X|+|Y'-Y|, D < 5, N = H / (D+1)}, 
-    MUn = M / 200000, MUd = 1000. % max: 0x00ffffff * (1 + 4/2 + 8/3 + 12/4 + 16/5) ≈ 2·10⁸
+%hash(X, Y, T, H) :- cell((X, Y), Tr), Tr != 0, time(T), H = |X + (Y * 16) + (T * 256) * 2654435761| / 128. % hash, leave 8 bits for addition
+%mu(X, Y, T, MUn, MUd) :- hash(X, Y, T, _),
+%    M = #sum {N : hash(X', Y', T, H), D = |X'-X|+|Y'-Y|, D < 5, N = H / (D+1)}, 
+%    MUn = M / 200000, MUd = 1000. % max: 0x00ffffff * (1 + 4/2 + 8/3 + 12/4 + 16/5) ≈ 2·10⁸
 %mu(1, 1).
 % g: fit to tile size
 g(1000, 1).
