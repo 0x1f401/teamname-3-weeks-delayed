@@ -1,3 +1,28 @@
+% speed limit calc
+#script (python)
+import clingo
+
+sqrt = lambda x: x ** 0.5
+
+def limit(X0, X1, Y0, Y1, Gn, Gd, MUn, MUd):
+    try:
+        res = sqrt(MUd.number/MUn.number * Gd.number/Gn.number) * sqrt(0.5 + 0.5 * (X0.number*X1.number + Y0.number*Y1.number) / (sqrt(X0.number**2 + Y0.number**2)*sqrt(X1.number**2 + Y1.number**2)))
+        print(res)
+        return clingo.Number(int(res))
+    except ZeroDivisionError:
+        return clingo.Number(0)
+#end.
+
+
+allowed(X, Y, Part, V) :- ext(Part, X, Y, Dir0, DX0, DY0), ext(Part, X, Y, Dir1, DX1, DY1), curve(Part, Dir0, Dir1),
+    V=1..40, mu(X, Y, 1, MUn, MUd), g(Gn, Gd), % n: numerator, d: denominator
+    
+    
+    (DX0**2+DY0**2) * (DX1**2+DY1**2) * (4*V**4*MUn*Gn - 2*MUd*Gd) ** 2 >= MUd**2 * Gd**2 * 4 * (DX0*DX1 + DY0*DY1) ** 2,
+    (V**4 * MUn * Gn - 2 * MUd * Gd) > 0, % derivative; ensure V is on rising part
+    DX0*DX1 + DY0+DY1 > 0. % fix square
+
+
 % opposite cardinal directions
 opp(n, s). opp(w, e).
 opp(D0, D1) :- opp(D1, D0).
@@ -16,7 +41,7 @@ straight(1025, e, w).
 straight(S, D0, D1) :- straight(S, D1, D0). % fixed typo; retry old?
 
 % single recursion movement step
-step(DX, DY) :- DX=-1..1, DY=-1..1, |DX|+|DY|=1.
+%step(DX, DY) :- DX=-1..1, DY=-1..1, |DX|+|DY|=1.
 
 % Entire section: FIXME doesn't check track connectivity (will travel up stacked horizontals)
 % extensions ext(Part, X, Y, Dir, DX, DY): curve Part, pos X,Y, startdir Dir, end DX,DY
@@ -36,9 +61,9 @@ extpart(Part, X, Y, Dir, Dir1', 0, 0) :- curve(Part, Dir, Dir1), opp(Dir1, Dir1'
 % probably doesn't distinguish between 
 extpart(Part, X, Y, Dir0, Dir1, DX+DDX, DY+DDY) :- 
     extpart(Part, X, Y, Dir0, Dir, DX, DY), truenext(X+DX, Y+DY, _, Dir, Dir1), dir(Dir1, DDX, DDY), % connected
-    DX * DX + DY * DY <= 25, % prevent too long curves (and overflows)
-    not opp(Dir0, Dir1), % no going back
-    1 {Dir != Dir1; Dir = Dir0} 2, % not going straight away: Dir = Dir1 != Dir0, negated: D != D1 | D = D0 FIXME: still goes 1 too far
+%    DX * DX + DY * DY <= 25, % prevent too long curves (and overflows)
+    not curve(Part, Dir0, Dir1), % no going back
+%    1 {Dir != Dir1; Dir = Dir0} 2, % not going straight away: Dir = Dir1 != Dir0, negated: D != D1 | D = D0 FIXME: still goes 1 too far
     cell((X+DX, Y+DY), Tr), (Tr & Part) * (1 - 0 ** (|DX|+|DY|)) != Part. % until similar, not same
 % combine extpart types
 %extpart(Part, X, Y, Dir, DX, DY) :- extpartm(Part, X, Y, Dir0, Dir, DX, DY).
@@ -70,42 +95,47 @@ curvature(X, Y, Part, C) :- curvaturedir(X, Y, Part, DX, DY), C = |DX| + |DY|. %
 %    MUn = M / 200000, MUd = 1000. % max: 0x00ffffff * (1 + 4/2 + 8/3 + 12/4 + 16/5) ≈ 2·10⁸
 %mu(1, 1).
 % g: fit to tile size
-g(1000, 1).
+g(2, 59).
+mu(X, Y, -1, 1, 1) :- cell((X, Y), _).
 
 % allowed speed
-allowed(X, Y, Part, V) :- ext(Part, X, Y, Dir0, DX0, DY0), ext(Part, X, Y, Dir1, DX1, DY1), curve(Part, Dir0, Dir1),
-    V=1..40, mu(X, Y, 1, MUn, MUd), g(Gn, Gd), % n: numerator, d: denominator
-    (DX0**2+DY0**2) * (DX1**2+DY1**2) * (4*V**4*MUn*Gn - 2*MUd*Gd) ** 2 >= MUd**2 * Gd**2 * 4 * (DX0*DX1 + DY0*DY1) ** 2,
-    (V**4 * MUn * Gn - 2 * MUd * Gd) > 0, % derivative; ensure V is on rising part
-    DX0*DX1 + DY0+DY1 > 0. % fix square
-allowed(X, Y, Part, V) :- ext(Part, X, Y, Dir0, DX0, DY0), ext(Part, X, Y, Dir1, DX1, DY1), curve(Part, Dir0, Dir1),
-    V=1..40, mu(X, Y, 1, MUn, MUd), g(Gn, Gd), % n: numerator, d: denominator
-    (DX0**2+DY0**2) * (DX1**2+DY1**2) * (4*V**4*MUn*Gn - 2*MUd*Gd) ** 2 <= MUd**2 * Gd**2 * 4 * (DX0*DX1 + DY0*DY1) ** 2,
-    (V**4 * MUn * Gn - 2 * MUd * Gd) < 0, % derivative; ensure V is on rising part
-    DX0*DX1 + DY0+DY1 < 0.
-allowed(X, Y, Part, 4..5) :- cell((X, Y), Tr), curve(Part, _, _), Tr & Part = Part.
-allowed(X, Y, Part, N..5) :- allowed(X, Y, Part, N).
+allowed(X, Y, T, Part, V) :- ext(Part, X, Y, Dir0, DX0, DY0), ext(Part, X, Y, Dir1, DX1, DY1), curve(Part, Dir0, Dir1),
+    V=1..40, mu(X, Y, T, MUn, MUd), g(Gn, Gd), % n: numerator, d: denominator
+    V > @limit(DX0, DX1, DY0, DY1, Gn, Gd, MUn, MUd).
+%allowed(X, Y, Part, V) :- ext(Part, X, Y, Dir0, DX0, DY0), ext(Part, X, Y, Dir1, DX1, DY1), curve(Part, Dir0, Dir1),
+%    V=1..40, mu(X, Y, 1, MUn, MUd), g(Gn, Gd), % n: numerator, d: denominator
+%    (DX0**2+DY0**2) * (DX1**2+DY1**2) * (4*V**4*MUn*Gn - 2*MUd*Gd) ** 2 >= MUd**2 * Gd**2 * 4 * (DX0*DX1 + DY0*DY1) ** 2,
+%    (V**4 * MUn * Gn - 2 * MUd * Gd) > 0, % derivative; ensure V is on rising part
+%    DX0*DX1 + DY0+DY1 > 0. % fix square
+%allowed(X, Y, Part, V) :- ext(Part, X, Y, Dir0, DX0, DY0), ext(Part, X, Y, Dir1, DX1, DY1), curve(Part, Dir0, Dir1),
+%    V=1..40, mu(X, Y, 1, MUn, MUd), g(Gn, Gd), % n: numerator, d: denominator
+%    (DX0**2+DY0**2) * (DX1**2+DY1**2) * (4*V**4*MUn*Gn - 2*MUd*Gd) ** 2 <= MUd**2 * Gd**2 * 4 * (DX0*DX1 + DY0*DY1) ** 2,
+%    (V**4 * MUn * Gn - 2 * MUd * Gd) < 0, % derivative; ensure V is on rising part
+%    DX0*DX1 + DY0+DY1 < 0.
+allowed(X, Y, T, Part, 4..5) :- cell((X, Y), Tr), curve(Part, _, _), Tr & Part = Part, time(T).
+allowed(X, Y, T, Part, N..5) :- allowed(X, Y, T, Part, N).
 
-highnum(N) :- ext(Part, X, Y, Dir0, DX0, DY0), ext(Part, X, Y, Dir1, DX1, DY1), curve(Part, Dir0, Dir1),
-    V=1..4, mu(X, Y, 1, MUn, MUd), g(Gn, Gd), % n: numerator, d: denominator
-    N = (DX0**2+DY0**2) * (DX1**2+DY1**2) * (4*V**4*MUn*Gn - 2*MUd*Gd) ** 2.
 
-highnum2(N) :- ext(Part, X, Y, Dir0, DX0, DY0), ext(Part, X, Y, Dir1, DX1, DY1), curve(Part, Dir0, Dir1),
-    V=1..4, mu(X, Y, 1, MUn, MUd), g(Gn, Gd), % n: numerator, d: denominator
-    N = MUd**2 * Gd**2 * 4 * (DX0*DX1 + DY0*DY1) ** 2.
+%highnum(N) :- ext(Part, X, Y, Dir0, DX0, DY0), ext(Part, X, Y, Dir1, DX1, DY1), curve(Part, Dir0, Dir1),
+%    V=1..4, mu(X, Y, -1, MUn, MUd), g(Gn, Gd), % n: numerator, d: denominator
+%    N = (DX0**2+DY0**2) * (DX1**2+DY1**2) * (4*V**4*MUn*Gn - 2*MUd*Gd) ** 2.
+%
+%highnum2(N) :- ext(Part, X, Y, Dir0, DX0, DY0), ext(Part, X, Y, Dir1, DX1, DY1), curve(Part, Dir0, Dir1),
+%    V=1..4, mu(X, Y, -1, MUn, MUd), g(Gn, Gd), % n: numerator, d: denominator
+%    N = MUd**2 * Gd**2 * 4 * (DX0*DX1 + DY0*DY1) ** 2.
 
-:- at(ID, T, X, Y, _), speed(ID, T, V), allowed(X, Y, _, _), not allowed(X, Y, _, V).
+:- at(ID, T, X, Y, _), speed(ID, T, V), allowed(X, Y, T, _, _), not allowed(X, Y, T, _, V).
 
 % debug
-limit(X, Y, Part, V) :- allowed(X, Y, Part, _), V = #min{V' : allowed(X, Y, Part, V')}.
+limit(X, Y, T, Part, V) :- allowed(X, Y, T, Part, _), V = #min{V' : allowed(X, Y, T, Part, V')}.
 
 overflow(2147483647).
 overflow(4294967295).
 %overflow(9223372036854775807).
 
-#show overflow/1.
-#show highnum/1.
-#show highnum2/1.
+%#show overflow/1.
+%#show highnum/1.
+%#show highnum2/1.
 %#show extpart0/7.
 %#show truenext/5.
 %#show step/2.
@@ -113,4 +143,4 @@ overflow(4294967295).
 #show ext/6.
 %#show curvaturedir/5.
 %#show curvature/4.
-#show limit/4.
+%#show limit/5.

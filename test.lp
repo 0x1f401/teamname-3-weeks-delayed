@@ -46,6 +46,8 @@ action(train(ID), wait, T) :- newspeed(ID, _, T, _), not endspeed(ID, T).
 at(ID, T+1, X+DX, Y+DY, Dn) :- at(ID, T, X, Y, D), action(train(ID), M, T), truenext(X, Y, M, D, Dn), dir(Dn, DX, DY).
 at(ID, T+1, X, Y, D) :- at(ID, T, X, Y, D), action(train(ID), wait, T).
 
+% prevent speeding into station
+:- end(ID, (X, Y), _), at(ID, T, X, Y, _), speed(ID, T, 1..3).
 
 reached_at_time(ID,T) :- at(ID,T,X,Y,_), end(ID,(X,Y),_).
 

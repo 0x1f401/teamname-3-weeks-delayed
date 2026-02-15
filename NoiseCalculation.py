@@ -45,7 +45,7 @@ def compute_mu(cells, T_max,nRaum,tTime):
     muMatrix=opensimplex.noise3array((np.array(range(x))/nRaum),(np.array(range(y))/nRaum),(np.array(range(T_max))/tTime))
     muMatrix=(((muMatrix+1)*10//1)+1)
     print(muMatrix)
-    MUd=1000
+    MUd=1
 
     for t1 in range(T_max):
         for y1 in range(y):
